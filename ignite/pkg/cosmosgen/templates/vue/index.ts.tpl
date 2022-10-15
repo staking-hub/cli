@@ -156,7 +156,13 @@ export default {
 		{{ range .Module.Msgs }}async send{{ .Name }}({ rootGetters }, { value, fee = [], memo = '' }) {
 			try {
 				const client=await initClient(rootGetters)
-				const result = await client.{{ camelCaseUpperSta $.Module.Pkg.Name }}.tx.send{{ .Name }}({ value, fee: {amount: fee, gas: "200000"}, memo })
+				let stdFee;
+				if (fee.gas) {
+					stdFee=fee;
+				}else{
+					stdFee={amount: fee, gas: "200000"};
+				}
+				const result = await client.{{ camelCaseUpperSta $.Module.Pkg.Name }}.tx.send{{ .Name }}({ value, fee: stdFee, memo })
 				return result
 			} catch (e) {
 				if (e == MissingWalletError) {
