@@ -53,7 +53,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	github.com/takuoki/gocase v1.1.1
-	github.com/tendermint/spn v0.2.1-0.20220921200247-8bafad876bdd
+	github.com/tendermint/spn v0.2.1-0.20221021132927-28dfbfae5331
 	github.com/tendermint/tendermint v0.34.22
 	github.com/tendermint/tm-db v0.6.7
 	github.com/vektra/mockery/v2 v2.14.0
