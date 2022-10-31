@@ -291,3 +291,52 @@ func (n Network) SendAccountRemoveRequest(
 	}
 	return nil
 }
+
+// SendParamChangeRequest creates the ParamChangeRequest message to SPN
+func (n Network) SendParamChangeRequest(
+	ctx context.Context,
+	launchID uint64,
+	moduleName string,
+	paramName string,
+	value []byte,
+) error {
+	addr, err := n.account.Address(networktypes.SPN)
+	if err != nil {
+		return err
+	}
+
+	msg := launchtypes.NewMsgSendRequest(
+		addr,
+		launchID,
+		launchtypes.NewParamChange(
+			launchID,
+			moduleName,
+			paramName,
+			value,
+		),
+	)
+
+	n.ev.Send("Broadcasting transaction", events.ProgressStart())
+
+	res, err := n.cosmos.BroadcastTx(ctx, n.account, msg)
+	if err != nil {
+		return err
+	}
+
+	var requestRes launchtypes.MsgSendRequestResponse
+	if err := res.Decode(&requestRes); err != nil {
+		return err
+	}
+
+	if requestRes.AutoApproved {
+		n.ev.Send("Param changed on the network by the coordinator!", events.ProgressFinish())
+	} else {
+		n.ev.Send(
+			fmt.Sprintf(
+				"Request %d to change param on the network has been submitted!", requestRes.RequestID,
+			),
+			events.ProgressFinish(),
+		)
+	}
+	return nil
+}
