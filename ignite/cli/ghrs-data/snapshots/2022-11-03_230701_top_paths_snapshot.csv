@@ -1,0 +1,11 @@
+url_path,views_total,views_unique
+/ignite/cli,1373,518
+/ignite/cli/issues,607,70
+/ignite/cli/pulls,442,28
+/ignite/cli/search,193,41
+/ignite/cli/releases,150,72
+/ignite/cli/tree/develop/ignite,110,49
+/ignite/cli/tree/develop/docs,81,56
+/ignite/cli/pull/2949,74,10
+/ignite/cli/pull/2950,71,7
+/ignite/cli/tree/develop/ignite/pkg,62,18
