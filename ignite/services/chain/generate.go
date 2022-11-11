@@ -18,12 +18,14 @@ type generateOptions struct {
 	isGoEnabled          bool
 	isTSClientEnabled    bool
 	isComposablesEnabled bool
+	isCustomEnabled      bool
 	isHooksEnabled       bool
 	isVuexEnabled        bool
 	isOpenAPIEnabled     bool
 	tsClientPath         string
 	vuexPath             string
 	composablesPath      string
+	customPath           string
 	hooksPath            string
 }
 
@@ -62,6 +64,14 @@ func GenerateComposables(path string) GenerateTarget {
 		o.isTSClientEnabled = true
 		o.isComposablesEnabled = true
 		o.composablesPath = path
+	}
+}
+
+// GenerateCustom enables generating proto based custom code.
+func GenerateCustom(path string) GenerateTarget {
+	return func(o *generateOptions) {
+		o.isCustomEnabled = true
+		o.customPath = path
 	}
 }
 
@@ -151,8 +161,8 @@ func (c *Chain) Generate(
 	}
 
 	var (
-		openAPIPath, tsClientPath, vuexPath, composablesPath, hooksPath string
-		updateConfig                                                    bool
+		openAPIPath, tsClientPath, vuexPath, composablesPath, hooksPath, customPath string
+		updateConfig                                                                bool
 	)
 
 	if targetOptions.isTSClientEnabled {
@@ -232,6 +242,25 @@ func (c *Chain) Generate(
 		)
 	}
 
+	if targetOptions.isCustomEnabled {
+		customPath = targetOptions.customPath
+
+		if customPath == "" {
+			customPath = "./custom"
+		}
+
+		// Non absolute Composables output paths must be treated as relative to the app directory
+		if !filepath.IsAbs(customPath) {
+			customPath = filepath.Join(c.app.Path, customPath)
+		}
+
+		options = append(options,
+			cosmosgen.WithCustomGeneration(
+				cosmosgen.CustomModulePath(customPath),
+				customPath,
+			),
+		)
+	}
 	if targetOptions.isHooksEnabled {
 		hooksPath = targetOptions.hooksPath
 		if hooksPath == "" {

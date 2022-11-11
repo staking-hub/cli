@@ -191,6 +191,7 @@ func Generate(ctx context.Context, cacheStorage cache.Storage, appPath, protoDir
 		}
 	}
 
+	if g.o.
 	return nil
 }
 
