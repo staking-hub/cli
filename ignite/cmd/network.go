@@ -29,8 +29,8 @@ const (
 	flagSPNNodeAddress   = "spn-node-address"
 	flagSPNFaucetAddress = "spn-faucet-address"
 
-	spnNodeAddressNightly   = "http://178.128.251.28:26657"
-	spnFaucetAddressNightly = "http://178.128.251.28:4500"
+	spnNodeAddressNightly   = "https://rpc.devnet.ignite.com:443"
+	spnFaucetAddressNightly = "https://faucet.devnet.ignite.com:443"
 
 	spnNodeAddressLocal   = "http://0.0.0.0:26661"
 	spnFaucetAddressLocal = "http://0.0.0.0:4502"
@@ -94,15 +94,15 @@ validators launch their nodes, a blockchain will be live.
 	}
 
 	// configure flags.
-	c.PersistentFlags().BoolVar(&local, flagLocal, false, "use local SPN network")
-	c.PersistentFlags().BoolVar(&nightly, flagNightly, false, "use nightly SPN network")
-	c.PersistentFlags().StringVar(&spnNodeAddress, flagSPNNodeAddress, spnNodeAddressNightly, "SPN node address")
-	c.PersistentFlags().StringVar(&spnFaucetAddress, flagSPNFaucetAddress, spnFaucetAddressNightly, "SPN faucet address")
+	c.PersistentFlags().BoolVar(&local, flagLocal, false, "use Ignite chain running locally")
+	c.PersistentFlags().BoolVar(&nightly, flagNightly, false, "use Ignite chain - nightly version")
+	c.PersistentFlags().StringVar(&spnNodeAddress, flagSPNNodeAddress, spnNodeAddressNightly, "set Ignite chain RPC address")
+	c.PersistentFlags().StringVar(&spnFaucetAddress, flagSPNFaucetAddress, spnFaucetAddressNightly, "set Ignite chain faucet address")
 
 	// add sub commands.
 	c.AddCommand(
 		NewNetworkChain(),
-		NewNetworkCampaign(),
+		NewNetworkProject(),
 		NewNetworkRequest(),
 		NewNetworkReward(),
 		NewNetworkValidator(),

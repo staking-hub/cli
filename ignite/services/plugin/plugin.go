@@ -1,5 +1,5 @@
 // Package plugin implements ignite plugin management.
-// A ignite plugin is a binary which communicates with the ignite binary
+// An ignite plugin is a binary which communicates with the ignite binary
 // via RPC thanks to the github.com/hashicorp/go-plugin library.
 package plugin
 
@@ -14,31 +14,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/hashicorp/go-hclog"
 	hplugin "github.com/hashicorp/go-plugin"
 	"github.com/pkg/errors"
 
-	"github.com/ignite/cli/ignite/chainconfig"
-	"github.com/ignite/cli/ignite/pkg/cliui"
+	"github.com/ignite/cli/ignite/config"
+	pluginsconfig "github.com/ignite/cli/ignite/config/plugins"
 	cliexec "github.com/ignite/cli/ignite/pkg/cmdrunner/exec"
 	"github.com/ignite/cli/ignite/pkg/cmdrunner/step"
+	"github.com/ignite/cli/ignite/pkg/env"
+	"github.com/ignite/cli/ignite/pkg/events"
 	"github.com/ignite/cli/ignite/pkg/gocmd"
 	"github.com/ignite/cli/ignite/pkg/xfilepath"
-	"github.com/ignite/cli/ignite/services/chain"
+	"github.com/ignite/cli/ignite/pkg/xgit"
+	"github.com/ignite/cli/ignite/pkg/xurl"
 )
 
-// pluginsPath holds the plugin cache directory.
-var pluginsPath = xfilepath.Join(
-	chainconfig.ConfigDirPath,
+// PluginsPath holds the plugin cache directory.
+var PluginsPath = xfilepath.Mkdir(xfilepath.Join(
+	config.DirPath,
 	xfilepath.Path("plugins"),
-)
+))
 
 // Plugin represents a ignite plugin.
 type Plugin struct {
 	// Embed the plugin configuration
-	chainconfig.Plugin
+	pluginsconfig.Plugin
 	// Interface allows to communicate with the plugin via net/rpc.
 	Interface Interface
 	// If any error occurred during the plugin load, it's stored here
@@ -52,6 +53,18 @@ type Plugin struct {
 	binaryName string
 
 	client *hplugin.Client
+
+	ev events.Bus
+}
+
+// Option configures Plugin.
+type Option func(*Plugin)
+
+// CollectEvents collects events from the chain.
+func CollectEvents(ev events.Bus) Option {
+	return func(p *Plugin) {
+		p.ev = ev
+	}
 }
 
 // Load loads the plugins found in the chain config.
@@ -66,22 +79,19 @@ type Plugin struct {
 // If an error occurs during a plugin load, it's not returned but rather stored
 // in the Plugin.Error field. This prevents the loading of other plugins to be
 // interrupted.
-func Load(ctx context.Context, c *chain.Chain) ([]*Plugin, error) {
-	conf, err := c.Config()
+func Load(ctx context.Context, plugins []pluginsconfig.Plugin, options ...Option) ([]*Plugin, error) {
+	pluginsDir, err := PluginsPath()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	pluginsDir, err := pluginsPath()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	var plugins []*Plugin
-	for _, cp := range conf.Plugins {
-		p := newPlugin(pluginsDir, cp)
+	var loaded []*Plugin
+	for _, cp := range plugins {
+		p := newPlugin(pluginsDir, cp, options...)
 		p.load(ctx)
-		plugins = append(plugins, p)
+
+		loaded = append(loaded, p)
 	}
-	return plugins, nil
+	return loaded, nil
 }
 
 // Update removes the cache directory of plugins and fetch them again.
@@ -97,15 +107,23 @@ func Update(plugins ...*Plugin) error {
 }
 
 // newPlugin creates a Plugin from configuration.
-func newPlugin(pluginsDir string, cp chainconfig.Plugin) *Plugin {
+func newPlugin(pluginsDir string, cp pluginsconfig.Plugin, options ...Option) *Plugin {
 	var (
-		p          = &Plugin{Plugin: cp}
+		p = &Plugin{
+			Plugin: cp,
+		}
 		pluginPath = cp.Path
 	)
 	if pluginPath == "" {
 		p.Error = errors.Errorf(`missing plugin property "path"`)
 		return p
 	}
+
+	// Apply the options
+	for _, apply := range options {
+		apply(p)
+	}
+
 	if strings.HasPrefix(pluginPath, "/") {
 		// This is a local plugin, check if the file exists
 		st, err := os.Stat(pluginPath)
@@ -133,20 +151,39 @@ func newPlugin(pluginsDir string, cp chainconfig.Plugin) *Plugin {
 		return p
 	}
 	p.repoPath = path.Join(parts[:3]...)
-	p.cloneURL = "https://" + p.repoPath
+	p.cloneURL, _ = xurl.HTTPS(p.repoPath)
 	if len(p.reference) > 0 {
 		p.repoPath += "@" + p.reference
 	}
 	p.cloneDir = path.Join(pluginsDir, p.repoPath)
 	p.srcPath = path.Join(pluginsDir, p.repoPath, path.Join(parts[3:]...))
 	p.binaryName = path.Base(pluginPath)
+
 	return p
 }
 
+// RemoveDuplicates takes a list of pluginsconfig.Plugins and returns a new list with only unique values.
+func RemoveDuplicates(plugins []pluginsconfig.Plugin) (unique []pluginsconfig.Plugin) {
+	keys := make(map[string]bool)
+	for _, plugin := range plugins {
+		if _, value := keys[plugin.Path]; !value {
+			keys[plugin.Path] = true
+			unique = append(unique, plugin)
+		}
+	}
+	return unique
+}
+
+// KillClient kills the running plugin client.
 func (p *Plugin) KillClient() {
 	if p.client != nil {
 		p.client.Kill()
 	}
+}
+
+// IsGlobal returns whether the plugin is installed globally or locally for a chain.
+func (p *Plugin) IsGlobal() bool {
+	return p.Plugin.Global
 }
 
 func (p *Plugin) isLocal() bool {
@@ -191,10 +228,14 @@ func (p *Plugin) load(ctx context.Context) {
 		p.binaryName: &InterfacePlugin{},
 	}
 	// Create an hclog.Logger
+	logLevel := hclog.Error
+	if env.DebugEnabled() {
+		logLevel = hclog.Trace
+	}
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:   fmt.Sprintf("plugin %s", p.Path),
 		Output: os.Stderr,
-		Level:  hclog.Error,
+		Level:  logLevel,
 	})
 	// We're a host! Start by launching the plugin process.
 	p.client = hplugin.NewClient(&hplugin.ClientConfig{
@@ -233,34 +274,13 @@ func (p *Plugin) fetch() {
 	if p.Error != nil {
 		return
 	}
-	defer cliui.New(cliui.StartSpinnerWithText(fmt.Sprintf("Fetching plugin %q...", p.cloneURL))).End()
+	p.ev.Send(fmt.Sprintf("Fetching plugin %q", p.cloneURL), events.ProgressStart())
+	defer p.ev.Send(fmt.Sprintf("Plugin fetched %q", p.cloneURL), events.ProgressFinish())
 
-	var err error
-	if p.reference == "" {
-		// No reference provided, just clone
-		_, err = git.PlainClone(p.cloneDir, false, &git.CloneOptions{
-			URL: p.cloneURL,
-		})
-	} else {
-		// Reference provided, clone using tag or branch reference, one of the two
-		// should work. SHA-1 aren't supported.
-		for _, ref := range []plumbing.ReferenceName{
-			plumbing.NewTagReferenceName(p.reference),
-			plumbing.NewBranchReferenceName(p.reference),
-		} {
-			_, err = git.PlainClone(p.cloneDir, false, &git.CloneOptions{
-				URL:           p.cloneURL,
-				ReferenceName: ref,
-				// Try to limit number of commits but this option doesn't seem to work well
-				Depth: 1,
-			})
-			if err == nil {
-				break
-			}
-		}
-	}
+	urlref := strings.Join([]string{p.cloneURL, p.reference}, "@")
+	err := xgit.Clone(context.Background(), urlref, p.cloneDir)
 	if err != nil {
-		p.Error = errors.Wrapf(err, "cloning %q", p.cloneURL)
+		p.Error = errors.Wrapf(err, "cloning %q", p.repoPath)
 	}
 }
 
@@ -269,7 +289,8 @@ func (p *Plugin) build(ctx context.Context) {
 	if p.Error != nil {
 		return
 	}
-	defer cliui.New(cliui.StartSpinnerWithText(fmt.Sprintf("Building plugin %q...", p.Path))).End()
+	p.ev.Send(fmt.Sprintf("Building plugin %q", p.Path), events.ProgressStart())
+	defer p.ev.Send(fmt.Sprintf("Plugin built %q", p.Path), events.ProgressFinish())
 
 	// FIXME(tb) we need to disable sumdb to get the branch version of CLI
 	// because our git history is too fat.
