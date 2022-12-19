@@ -17,14 +17,35 @@ func TestInspect(t *testing.T) {
 		setup  func(*mocks.Asserter)
 	}{
 		{
-			name:   "one file one mdrun",
-			folder: "simple",
+			name:   "single file",
+			folder: "single_file",
 			setup: func(a *mocks.Asserter) {
 				a.EXPECT().Assert("exec", mdrun.CodeBlock{
 					Lang: "bash",
 					Lines: []string{
 						"$ ls\n",
 						"$ touch 42\n",
+					},
+				}).Return(nil)
+			},
+		},
+		{
+			name:   "multiple files",
+			folder: "multiple_files",
+			setup: func(a *mocks.Asserter) {
+				a.EXPECT().Assert("exec", mdrun.CodeBlock{
+					Lang: "bash",
+					Lines: []string{
+						"$ ls\n",
+					},
+				}).Return(nil)
+				a.EXPECT().Assert("write", mdrun.CodeBlock{
+					Lang: "go",
+					Properties: map[string]string{
+						"title": "hello.go",
+					},
+					Lines: []string{
+						"fmt.Println(\"Hello\")\n",
 					},
 				}).Return(nil)
 			},
