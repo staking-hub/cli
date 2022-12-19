@@ -27,17 +27,17 @@ type CodeBlock struct {
 
 // Inspect detects all md files in dir, sort them by folder and assert mdrun
 // commands.
-// fileSets group markdown files per directory.
-// Each directory is considered as a group of instructions that should be
-// successfully executed to mark the group as sucessful.
-// Files are sorted lexicographycally and instructions order is expected to
-// be the same.
 func Inspect(dir string, r Asserter) error {
-	// build file sets
 	var (
 		currentDir = dir
-		fileSets   = make(map[string][]fs.DirEntry)
+		// fileSets group markdown files per directory.
+		// Each directory is considered as a group of instructions that should be
+		// successfully executed to mark the group as sucessful.
+		// Files are sorted lexicographycally and instructions order is expected to
+		// be the same.
+		fileSets = make(map[string][]fs.DirEntry)
 	)
+	// build file sets
 	err := fs.WalkDir(os.DirFS(dir), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -73,7 +73,7 @@ func Inspect(dir string, r Asserter) error {
 	return nil
 }
 
-// visitor expose a visit method usable in ast.Walk
+// visitor exposes a visit method usable in ast.Walk
 type visitor struct {
 	r  Asserter
 	bz []byte
