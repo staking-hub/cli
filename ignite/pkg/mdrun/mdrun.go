@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
 )
@@ -16,7 +15,12 @@ import (
 //
 //go:generate mockery --srcpkg . --name Asserter --with-expecter
 type Asserter interface {
-	Assert(cmd string, codeBlock CodeBlock) error
+	Assert(Instruction) error
+}
+
+type Instruction struct {
+	Cmd       string
+	CodeBlock *CodeBlock
 }
 
 // CodeBlock represents a markdown fenced code block.
@@ -85,20 +89,23 @@ func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		// skip if n is not a mdrunNode
 		return ast.WalkContinue, nil
 	}
-	// expected next node must be a FencedCodeBlock
+	instruction := Instruction{
+		Cmd: mdrun.content,
+	}
 	codeBlock, ok := n.NextSibling().(*ast.FencedCodeBlock)
-	if !ok {
-		return ast.WalkStop, errors.Errorf("mdrun sibling must be a FencedCodeBlock, got %T", n.NextSibling())
+	if ok {
+		// if next node is a FencedCodeBlock, include it in inst
+		var (
+			lang  = string(codeBlock.Language(v.bz))
+			lines []string
+		)
+		for i := 0; i < codeBlock.Lines().Len(); i++ {
+			line := codeBlock.Lines().At(i)
+			lines = append(lines, string(line.Value(v.bz)))
+		}
+		instruction.CodeBlock = &CodeBlock{Lang: lang, Lines: lines}
 	}
-	var (
-		lang  = string(codeBlock.Language(v.bz))
-		lines []string
-	)
-	for i := 0; i < codeBlock.Lines().Len(); i++ {
-		line := codeBlock.Lines().At(i)
-		lines = append(lines, string(line.Value(v.bz)))
-	}
-	err := v.r.Assert(mdrun.content, CodeBlock{Lang: lang, Lines: lines})
+	err := v.r.Assert(instruction)
 	if err != nil {
 		return ast.WalkStop, err
 	}

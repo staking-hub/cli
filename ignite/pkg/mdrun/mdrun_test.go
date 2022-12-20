@@ -20,11 +20,14 @@ func TestInspect(t *testing.T) {
 			name:   "single file",
 			folder: "single_file",
 			setup: func(a *mocks.Asserter) {
-				a.EXPECT().Assert("exec", mdrun.CodeBlock{
-					Lang: "bash",
-					Lines: []string{
-						"$ ls\n",
-						"$ touch 42\n",
+				a.EXPECT().Assert(mdrun.Instruction{
+					Cmd: "exec",
+					CodeBlock: &mdrun.CodeBlock{
+						Lang: "bash",
+						Lines: []string{
+							"$ ls\n",
+							"$ touch 42\n",
+						},
 					},
 				}).Return(nil)
 			},
@@ -33,17 +36,26 @@ func TestInspect(t *testing.T) {
 			name:   "multiple files",
 			folder: "multiple_files",
 			setup: func(a *mocks.Asserter) {
-				a.EXPECT().Assert("exec", mdrun.CodeBlock{
-					Lang: "bash",
-					Lines: []string{
-						"$ ls\n",
+				a.EXPECT().Assert(mdrun.Instruction{
+					Cmd: "exec",
+					CodeBlock: &mdrun.CodeBlock{
+						Lang: "bash",
+						Lines: []string{
+							"$ ls\n",
+						},
 					},
 				}).Return(nil)
-				a.EXPECT().Assert("write src/hello.go", mdrun.CodeBlock{
-					Lang: "go",
-					Lines: []string{
-						"fmt.Println(\"Hello\")\n",
+				a.EXPECT().Assert(mdrun.Instruction{
+					Cmd: "write src/hello.go",
+					CodeBlock: &mdrun.CodeBlock{
+						Lang: "go",
+						Lines: []string{
+							"fmt.Println(\"Hello\")\n",
+						},
 					},
+				}).Return(nil)
+				a.EXPECT().Assert(mdrun.Instruction{
+					Cmd: "exec ignite chain serve",
 				}).Return(nil)
 			},
 		},
