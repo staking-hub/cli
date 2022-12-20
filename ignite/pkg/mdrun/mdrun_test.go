@@ -39,11 +39,8 @@ func TestInspect(t *testing.T) {
 						"$ ls\n",
 					},
 				}).Return(nil)
-				a.EXPECT().Assert("write", mdrun.CodeBlock{
+				a.EXPECT().Assert("write src/hello.go", mdrun.CodeBlock{
 					Lang: "go",
-					Properties: map[string]string{
-						"title": "hello.go",
-					},
 					Lines: []string{
 						"fmt.Println(\"Hello\")\n",
 					},

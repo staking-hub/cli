@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
@@ -22,9 +21,8 @@ type Asserter interface {
 
 // CodeBlock represents a markdown fenced code block.
 type CodeBlock struct {
-	Lang       string
-	Properties map[string]string
-	Lines      []string
+	Lang  string
+	Lines []string
 }
 
 // Inspect detects all md files in dir, sort them by folder and assert mdrun
@@ -65,7 +63,7 @@ func Inspect(dir string, r Asserter) error {
 			if err != nil {
 				return fmt.Errorf("read file %s: %w", files[i].Name(), err)
 			}
-			root := NewParser().Parse(text.NewReader(bz))
+			root := newParser().Parse(text.NewReader(bz))
 			err = ast.Walk(root, visitor{bz: bz, r: r}.visit)
 			if err != nil {
 				return err
@@ -96,7 +94,6 @@ func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		lang  = string(codeBlock.Language(v.bz))
 		lines []string
 	)
-	spew.Dump("ATTRS", codeBlock)
 	for i := 0; i < codeBlock.Lines().Len(); i++ {
 		line := codeBlock.Lines().At(i)
 		lines = append(lines, string(line.Value(v.bz)))

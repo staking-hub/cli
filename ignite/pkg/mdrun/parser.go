@@ -9,7 +9,7 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-func NewParser() parser.Parser {
+func newParser() parser.Parser {
 	return parser.NewParser(
 		parser.WithBlockParsers(
 			append(
