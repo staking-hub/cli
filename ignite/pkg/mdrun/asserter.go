@@ -32,9 +32,19 @@ func (a asserter) Getwd() string {
 
 func (a *asserter) Assert(i Instruction) error {
 	ferr := func(err error) error {
-		// TODO add line context
+		// TODO add line number context
 		return fmt.Errorf("assert: %v", err)
 	}
+	// Set wd and restore previous at the end
+	origwd, err := os.Getwd()
+	if err != nil {
+		return ferr(err)
+	}
+	if err := os.Chdir(a.wd); err != nil {
+		return ferr(err)
+	}
+	defer os.Chdir(origwd)
+
 	if i.Cmd == "" {
 		return ferr(errors.New("empty cmd"))
 	}
@@ -60,7 +70,7 @@ func (a *asserter) Assert(i Instruction) error {
 				}
 			}
 		} else {
-			// exec has args
+			// exec with args
 			err := a.exec(s[1:])
 			if err != nil {
 				return ferr(err)
@@ -76,17 +86,24 @@ func (a *asserter) Assert(i Instruction) error {
 
 func (a *asserter) exec(cmds []string) error {
 	ferr := func(err error) error {
-		return fmt.Errorf("exec %v: %w", cmds, err)
+		return fmt.Errorf("exec %s: %w", cmds, err)
 	}
 	if cmds[0] == "cd" {
 		if len(cmds) != 2 {
 			return ferr(errors.New("missing cd arg"))
 		}
-		if err := os.Chdir(cmds[1]); err != nil {
+		path := cmds[1]
+		// Check path is inside a.wd
+		if strings.HasPrefix(path, "/") || strings.Contains(path, "..") {
+			return ferr(fmt.Errorf("path %s must be relative w/o dots", path))
+		}
+		// OK, update wd
+		if err := os.Chdir(path); err != nil {
 			return ferr(err)
 		}
 		return nil
 	}
+	// Other than cd command
 	var args []string
 	if len(cmds) > 1 {
 		args = cmds[1:]

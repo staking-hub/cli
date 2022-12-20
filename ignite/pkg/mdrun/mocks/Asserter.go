@@ -57,6 +57,42 @@ func (_c *Asserter_Assert_Call) Return(_a0 error) *Asserter_Assert_Call {
 	return _c
 }
 
+// Getwd provides a mock function with given fields:
+func (_m *Asserter) Getwd() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// Asserter_Getwd_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Getwd'
+type Asserter_Getwd_Call struct {
+	*mock.Call
+}
+
+// Getwd is a helper method to define mock.On call
+func (_e *Asserter_Expecter) Getwd() *Asserter_Getwd_Call {
+	return &Asserter_Getwd_Call{Call: _e.mock.On("Getwd")}
+}
+
+func (_c *Asserter_Getwd_Call) Run(run func()) *Asserter_Getwd_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Asserter_Getwd_Call) Return(_a0 string) *Asserter_Getwd_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
 type mockConstructorTestingTNewAsserter interface {
 	mock.TestingT
 	Cleanup(func())

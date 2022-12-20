@@ -2,6 +2,7 @@ package mdrun_test
 
 import (
 	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,11 +11,12 @@ import (
 	"github.com/ignite/cli/ignite/pkg/mdrun"
 )
 
-func TestDefaultAsserterAssert(t *testing.T) {
+func TestAssert(t *testing.T) {
+	origwd, _ := os.Getwd()
 	tests := []struct {
 		name          string
 		instruction   mdrun.Instruction
-		assert        func(*testing.T)
+		assert        func(*testing.T, mdrun.Asserter)
 		expectedError string
 	}{
 		{
@@ -37,14 +39,26 @@ func TestDefaultAsserterAssert(t *testing.T) {
 			expectedError: "assert: exec [cd]: missing cd arg",
 		},
 		{
-			name: "ok: exec change wd",
+			name: "fail: exec change wd to absolute path",
 			instruction: mdrun.Instruction{
 				Cmd: "exec cd /tmp",
 			},
-			assert: func(t *testing.T) {
-				wd, err := os.Getwd()
-				require.NoError(t, err)
-				assert.Equal(t, "/tmp", wd)
+			expectedError: "assert: exec [cd /tmp]: path /tmp must be relative w/o dots",
+		},
+		{
+			name: "fail: exec change wd outside initial wd #2",
+			instruction: mdrun.Instruction{
+				Cmd: "exec cd tmp/../..",
+			},
+			expectedError: "assert: exec [cd tmp/../..]: path tmp/../.. must be relative w/o dots",
+		},
+		{
+			name: "ok: exec touch 1",
+			instruction: mdrun.Instruction{
+				Cmd: "exec touch 1",
+			},
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				require.FileExists(t, path.Join(a.Getwd(), "1"))
 			},
 		},
 		{
@@ -74,17 +88,13 @@ func TestDefaultAsserterAssert(t *testing.T) {
 				Cmd: "exec",
 				CodeBlock: &mdrun.CodeBlock{
 					Lines: []string{
-						// TODO cannot use external dir than initial working dir for security reason
-						"cd /tmp",
-						"touch 1",
+						"mkdir tmp",
+						"touch tmp/1",
 					},
 				},
 			},
-			assert: func(t *testing.T) {
-				wd, err := os.Getwd()
-				require.NoError(t, err)
-				assert.Equal(t, "/tmp", wd)
-				assert.FileExists(t, "/tmp/1")
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				require.FileExists(t, path.Join(a.Getwd(), "tmp/1"))
 			},
 		},
 		{
@@ -117,25 +127,20 @@ func TestDefaultAsserterAssert(t *testing.T) {
 				Cmd: "exec",
 				CodeBlock: &mdrun.CodeBlock{
 					Lines: []string{
-						"$ cd /tmp",
-						"$ touch 1",
+						"$ mkdir tmp",
+						"$ touch tmp/1",
 					},
 				},
 			},
-			assert: func(t *testing.T) {
-				wd, err := os.Getwd()
-				require.NoError(t, err)
-				assert.Equal(t, "/tmp", wd)
-				assert.FileExists(t, "/tmp/1")
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				require.FileExists(t, path.Join(a.Getwd(), "tmp/1"))
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Ensure the asserter doesnt alter wd after the test
-			wd, _ := os.Getwd()
-			defer os.Chdir(wd)
 			require := require.New(t)
+			assert := assert.New(t)
 			a, err := mdrun.DefaultAsserter()
 			require.NoError(err)
 
@@ -146,7 +151,10 @@ func TestDefaultAsserterAssert(t *testing.T) {
 				return
 			}
 			require.NoError(err)
-			tt.assert(t)
+			tt.assert(t, a)
+			// Ensure the asserter doesnt alter wd after the test
+			wd, _ := os.Getwd()
+			assert.Equal(origwd, wd, "wd have changed")
 		})
 	}
 }

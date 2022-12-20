@@ -16,6 +16,7 @@ import (
 //go:generate mockery --srcpkg . --name Asserter --with-expecter
 type Asserter interface {
 	Assert(Instruction) error
+	Getwd() string
 }
 
 type Instruction struct {
