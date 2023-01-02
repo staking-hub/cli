@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -98,6 +99,7 @@ func (a *asserter) exec(cmds []string) error {
 		if err := os.Chdir(path); err != nil {
 			return err
 		}
+		a.wd = filepath.Join(a.wd, path)
 		return nil
 	}
 	// Other than cd command

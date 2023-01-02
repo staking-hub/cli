@@ -9,92 +9,93 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ignite/cli/ignite/pkg/mdrun"
+	envtest "github.com/ignite/cli/integration"
 )
 
 func TestAssert(t *testing.T) {
 	origwd, _ := os.Getwd()
 	tests := []struct {
 		name          string
-		instruction   mdrun.Instruction
+		instructions  []mdrun.Instruction
 		assert        func(*testing.T, mdrun.Asserter)
 		expectedError string
 	}{
 		{
 			name: "fail: empty cmd",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd '': empty cmd",
 		},
 		{
 			name: "fail: unknow content",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "xyz",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'xyz': unknow cmd",
 		},
 		{
 			name: "fail: exec change wd without arg",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec cd",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec cd': missing cd arg",
 		},
 		{
 			name: "fail: exec change wd to absolute path",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec cd /tmp",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec cd /tmp': path /tmp must be relative w/o dots",
 		},
 		{
 			name: "fail: exec change wd outside initial wd #2",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec cd tmp/../..",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec cd tmp/../..': path tmp/../.. must be relative w/o dots",
 		},
 		{
 			name: "ok: exec touch 1",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec touch 1",
-			},
+			}},
 			assert: func(t *testing.T, a mdrun.Asserter) {
 				require.FileExists(t, path.Join(a.Getwd(), "1"))
 			},
 		},
 		{
 			name: "fail: exec invalid cd command",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec cd xxx",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec cd xxx': chdir xxx: no such file or directory",
 		},
 		{
 			name: "fail: exec invalid command",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec foo",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec foo': exec: \"foo\": executable file not found in $PATH",
 		},
 		{
 			name: "fail: single exec without code block",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec",
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec': missing codeblock for exec",
 		},
 		{
 			name: "ok: exec with code block",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec",
 				CodeBlock: &mdrun.CodeBlock{
@@ -103,14 +104,14 @@ func TestAssert(t *testing.T) {
 						"touch tmp/1",
 					},
 				},
-			},
+			}},
 			assert: func(t *testing.T, a mdrun.Asserter) {
 				require.FileExists(t, path.Join(a.Getwd(), "tmp/1"))
 			},
 		},
 		{
 			name: "fail: exec with code block, invalid cd command",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec",
 				CodeBlock: &mdrun.CodeBlock{
@@ -118,12 +119,12 @@ func TestAssert(t *testing.T) {
 						"cd xxx",
 					},
 				},
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec': codeblock [cd xxx]: chdir xxx: no such file or directory",
 		},
 		{
 			name: "fail: exec with code block, invalid command",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec",
 				CodeBlock: &mdrun.CodeBlock{
@@ -131,12 +132,12 @@ func TestAssert(t *testing.T) {
 						"foo",
 					},
 				},
-			},
+			}},
 			expectedError: "assert: file '01.md' cmd 'exec': codeblock [foo]: exec: \"foo\": executable file not found in $PATH",
 		},
 		{
 			name: "ok: exec with code block and $ prefix",
-			instruction: mdrun.Instruction{
+			instructions: []mdrun.Instruction{{
 				Filename: "01.md",
 				Cmd:      "exec",
 				CodeBlock: &mdrun.CodeBlock{
@@ -145,9 +146,37 @@ func TestAssert(t *testing.T) {
 						"$ touch tmp/1",
 					},
 				},
-			},
+			}},
 			assert: func(t *testing.T, a mdrun.Asserter) {
 				require.FileExists(t, path.Join(a.Getwd(), "tmp/1"))
+			},
+		},
+		{
+			name: "ok: scaffold a chain and a module",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "exec",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: []string{
+							"/tmp/ignite-tests/ignite scaffold chain hello --no-module",
+						},
+					},
+				},
+				{
+					Filename: "01.md",
+					Cmd:      "exec",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: []string{
+							"cd hello",
+							"/tmp/ignite-tests/ignite scaffold module mymod",
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				require.FileExists(t, path.Join(a.Getwd(), "go.mod"))
+				require.FileExists(t, path.Join(a.Getwd(), "/x/mymod/keeper/keeper.go"))
 			},
 		},
 	}
@@ -157,14 +186,20 @@ func TestAssert(t *testing.T) {
 			assert := assert.New(t)
 			a, err := mdrun.DefaultAsserter()
 			require.NoError(err)
+			// Compile ignite binary
+			envtest.New(t)
 
-			err = a.Assert(tt.instruction)
+			for _, instruction := range tt.instructions {
 
-			if tt.expectedError != "" {
-				require.EqualError(err, tt.expectedError)
-				return
+				err := a.Assert(instruction)
+
+				if tt.expectedError != "" {
+					require.EqualError(err, tt.expectedError)
+					return
+				}
+				require.NoError(err)
 			}
-			require.NoError(err)
+
 			tt.assert(t, a)
 			// Ensure the asserter doesnt alter wd after the test
 			wd, _ := os.Getwd()
