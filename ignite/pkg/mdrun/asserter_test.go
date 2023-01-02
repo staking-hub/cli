@@ -1,6 +1,7 @@
 package mdrun_test
 
 import (
+	"context"
 	"os"
 	"path"
 	"testing"
@@ -142,8 +143,8 @@ func TestAssert(t *testing.T) {
 				Cmd:      "exec",
 				CodeBlock: &mdrun.CodeBlock{
 					Lines: []string{
-						"$ mkdir tmp",
-						"$ touch tmp/1",
+						"$ mkdir tmp\n",
+						"$ touch tmp/1\n",
 					},
 				},
 			}},
@@ -173,6 +174,15 @@ func TestAssert(t *testing.T) {
 						},
 					},
 				},
+				{
+					Filename: "01.md",
+					Cmd:      "exec&",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: []string{
+							"/tmp/ignite-tests/ignite chain serve",
+						},
+					},
+				},
 			},
 			assert: func(t *testing.T, a mdrun.Asserter) {
 				require.FileExists(t, path.Join(a.Getwd(), "go.mod"))
@@ -188,10 +198,9 @@ func TestAssert(t *testing.T) {
 			require.NoError(err)
 			// Compile ignite binary
 			envtest.New(t)
-
 			for _, instruction := range tt.instructions {
 
-				err := a.Assert(instruction)
+				err := a.Assert(context.Background(), instruction)
 
 				if tt.expectedError != "" {
 					require.EqualError(err, tt.expectedError)
@@ -199,7 +208,6 @@ func TestAssert(t *testing.T) {
 				}
 				require.NoError(err)
 			}
-
 			tt.assert(t, a)
 			// Ensure the asserter doesnt alter wd after the test
 			wd, _ := os.Getwd()

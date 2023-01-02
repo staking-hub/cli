@@ -1,8 +1,10 @@
 package mdrun
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +12,8 @@ import (
 )
 
 const (
-	cmdExec = "exec"
+	cmdExec           = "exec"
+	cmdExecBackground = "exec&"
 )
 
 func DefaultAsserter() (Asserter, error) {
@@ -31,7 +34,7 @@ func (a asserter) Getwd() string {
 	return a.wd
 }
 
-func (a *asserter) Assert(i Instruction) error {
+func (a *asserter) Assert(ctx context.Context, i Instruction) error {
 	ferr := func(err error) error {
 		// TODO add line number context
 		return fmt.Errorf("assert: file '%s' cmd '%s': %v", i.Filename, i.Cmd, err)
@@ -53,7 +56,7 @@ func (a *asserter) Assert(i Instruction) error {
 	cmd := s[0]
 	switch cmd {
 
-	case cmdExec:
+	case cmdExec, cmdExecBackground:
 		if len(s) == 1 {
 			// single exec requires a code block
 			if i.CodeBlock == nil {
@@ -65,14 +68,14 @@ func (a *asserter) Assert(i Instruction) error {
 					// skip shell prefix used to illustrate command lines
 					cmds = cmds[1:]
 				}
-				err := a.exec(cmds)
+				err := a.exec(ctx, cmds, cmd == cmdExecBackground)
 				if err != nil {
 					return ferr(fmt.Errorf("codeblock %v: %v", cmds, err))
 				}
 			}
 		} else {
 			// exec with args
-			err := a.exec(s[1:])
+			err := a.exec(ctx, s[1:], cmd == cmdExecBackground)
 			if err != nil {
 				return ferr(err)
 			}
@@ -85,7 +88,8 @@ func (a *asserter) Assert(i Instruction) error {
 	return nil
 }
 
-func (a *asserter) exec(cmds []string) error {
+func (a *asserter) exec(ctx context.Context, cmds []string, async bool) error {
+	log.Printf("exec(async=%t) %s", async, strings.Join(cmds, " "))
 	if cmds[0] == "cd" {
 		if len(cmds) != 2 {
 			return errors.New("missing cd arg")
@@ -107,9 +111,9 @@ func (a *asserter) exec(cmds []string) error {
 	if len(cmds) > 1 {
 		args = cmds[1:]
 	}
-	err := exec.Command(cmds[0], args...).Run()
-	if err != nil {
-		return err
+	if async {
+		go exec.CommandContext(ctx, cmds[0], args...).Run()
+		return nil
 	}
-	return nil
+	return exec.CommandContext(ctx, cmds[0], args...).Run()
 }

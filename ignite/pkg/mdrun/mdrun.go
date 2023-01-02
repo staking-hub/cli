@@ -1,6 +1,7 @@
 package mdrun
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,7 +16,7 @@ import (
 //
 //go:generate mockery --srcpkg . --name Asserter --with-expecter
 type Asserter interface {
-	Assert(Instruction) error
+	Assert(context.Context, Instruction) error
 	Getwd() string
 }
 
@@ -36,7 +37,7 @@ type CodeBlock struct {
 
 // Inspect detects all md files in dir, sort them by folder and assert mdrun
 // commands.
-func Inspect(dir string, a Asserter) error {
+func Inspect(ctx context.Context, dir string, a Asserter) error {
 	var (
 		currentDir = dir
 		// fileSets group markdown files per directory.
@@ -74,6 +75,7 @@ func Inspect(dir string, a Asserter) error {
 			}
 			root := newParser().Parse(text.NewReader(bz))
 			err = ast.Walk(root, visitor{
+				ctx:      ctx,
 				bz:       bz,
 				asserter: a,
 				filename: files[i].Name(),
@@ -88,6 +90,7 @@ func Inspect(dir string, a Asserter) error {
 
 // visitor exposes a visit method usable in ast.Walk
 type visitor struct {
+	ctx      context.Context
 	filename string
 	asserter Asserter
 	bz       []byte
@@ -116,7 +119,7 @@ func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		}
 		instruction.CodeBlock = &CodeBlock{Lang: lang, Lines: lines}
 	}
-	err := v.asserter.Assert(instruction)
+	err := v.asserter.Assert(v.ctx, instruction)
 	if err != nil {
 		return ast.WalkStop, err
 	}

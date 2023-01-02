@@ -1,9 +1,11 @@
 package mdrun_test
 
 import (
+	"context"
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ignite/cli/ignite/pkg/mdrun"
@@ -20,7 +22,7 @@ func TestInspect(t *testing.T) {
 			name:   "single file",
 			folder: "single_file",
 			setup: func(a *mocks.Asserter) {
-				a.EXPECT().Assert(mdrun.Instruction{
+				a.EXPECT().Assert(mock.Anything, mdrun.Instruction{
 					Filename: "01.md",
 					Cmd:      "exec",
 					CodeBlock: &mdrun.CodeBlock{
@@ -37,7 +39,7 @@ func TestInspect(t *testing.T) {
 			name:   "multiple files",
 			folder: "multiple_files",
 			setup: func(a *mocks.Asserter) {
-				a.EXPECT().Assert(mdrun.Instruction{
+				a.EXPECT().Assert(mock.Anything, mdrun.Instruction{
 					Filename: "01.md",
 					Cmd:      "exec",
 					CodeBlock: &mdrun.CodeBlock{
@@ -47,7 +49,7 @@ func TestInspect(t *testing.T) {
 						},
 					},
 				}).Return(nil)
-				a.EXPECT().Assert(mdrun.Instruction{
+				a.EXPECT().Assert(mock.Anything, mdrun.Instruction{
 					Filename: "02.md",
 					Cmd:      "write src/hello.go",
 					CodeBlock: &mdrun.CodeBlock{
@@ -57,7 +59,7 @@ func TestInspect(t *testing.T) {
 						},
 					},
 				}).Return(nil)
-				a.EXPECT().Assert(mdrun.Instruction{
+				a.EXPECT().Assert(mock.Anything, mdrun.Instruction{
 					Filename: "02.md",
 					Cmd:      "exec ignite chain serve",
 				}).Return(nil)
@@ -69,7 +71,7 @@ func TestInspect(t *testing.T) {
 			asserter := mocks.NewAsserter(t)
 			tt.setup(asserter)
 
-			err := mdrun.Inspect(path.Join("testdata", tt.folder), asserter)
+			err := mdrun.Inspect(context.Background(), path.Join("testdata", tt.folder), asserter)
 
 			require.NoError(t, err)
 		})
