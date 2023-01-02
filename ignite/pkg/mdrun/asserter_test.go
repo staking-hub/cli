@@ -2,8 +2,10 @@ package mdrun_test
 
 import (
 	"context"
+	_ "embed"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +13,15 @@ import (
 
 	"github.com/ignite/cli/ignite/pkg/mdrun"
 	envtest "github.com/ignite/cli/integration"
+)
+
+var (
+	//go:embed testdata/file.go
+	fileGo string
+	//go:embed testdata/edit.go
+	editGo string
+	//go:embed testdata/file_edited.go
+	fileEditedGo string
 )
 
 func TestAssert(t *testing.T) {
@@ -150,6 +161,88 @@ func TestAssert(t *testing.T) {
 			}},
 			assert: func(t *testing.T, a mdrun.Asserter) {
 				require.FileExists(t, path.Join(a.Getwd(), "tmp/1"))
+			},
+		},
+		{
+			name: "fail: write w/o args",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "write",
+				},
+			},
+			expectedError: "assert: file '01.md' cmd 'write': write requires one arg",
+		},
+		{
+			name: "fail: write w/o codeblock",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "write file.go",
+				},
+			},
+			expectedError: "assert: file '01.md' cmd 'write file.go': write requires a codeblock",
+		},
+		{
+			name: "ok: write file",
+			instructions: []mdrun.Instruction{
+				{
+					Cmd: "write file.go",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: strings.SplitAfter(fileGo, "\n"),
+					},
+				},
+			},
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				resFile := path.Join(a.Getwd(), "file.go")
+				require.FileExists(t, resFile)
+				bz, err := os.ReadFile(resFile)
+				require.NoError(t, err)
+				assert.Equal(t, fileGo, string(bz))
+			},
+		},
+		{
+			name: "fail: edit w/o args",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "edit",
+				},
+			},
+			expectedError: "assert: file '01.md' cmd 'edit': edit requires one arg",
+		},
+		{
+			name: "fail: edit w/o codeblock",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "edit file.go",
+				},
+			},
+			expectedError: "assert: file '01.md' cmd 'edit file.go': edit requires a codeblock",
+		},
+		{
+			name: "ok: edit file",
+			instructions: []mdrun.Instruction{
+				{
+					Cmd: "write file.go",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: strings.SplitAfter(fileGo, "\n"),
+					},
+				},
+				{
+					Cmd: "edit file.go",
+					CodeBlock: &mdrun.CodeBlock{
+						Lines: strings.SplitAfter(editGo, "\n"),
+					},
+				},
+			},
+			assert: func(t *testing.T, a mdrun.Asserter) {
+				resFile := path.Join(a.Getwd(), "file.go")
+				require.FileExists(t, resFile)
+				bz, err := os.ReadFile(resFile)
+				require.NoError(t, err)
+				assert.Equal(t, fileEditedGo, string(bz))
 			},
 		},
 		{

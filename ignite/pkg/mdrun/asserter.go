@@ -14,6 +14,8 @@ import (
 const (
 	cmdExec           = "exec"
 	cmdExecBackground = "exec&"
+	cmdWrite          = "write"
+	cmdEdit           = "edit"
 )
 
 func DefaultAsserter() (Asserter, error) {
@@ -80,6 +82,31 @@ func (a *asserter) Assert(ctx context.Context, i Instruction) error {
 				return ferr(err)
 			}
 		}
+
+	case cmdWrite:
+		if len(s) != 2 {
+			return ferr(errors.New("write requires one arg"))
+		}
+		filename := s[1]
+		if i.CodeBlock == nil {
+			return ferr(errors.New("write requires a codeblock"))
+		}
+		content := strings.Join(i.CodeBlock.Lines, "")
+		err := os.WriteFile(filename, []byte(content), 0o644)
+		if err != nil {
+			return ferr(err)
+		}
+
+	case cmdEdit:
+		if len(s) != 2 {
+			return ferr(errors.New("edit requires one arg"))
+		}
+		filename := s[1]
+		if i.CodeBlock == nil {
+			return ferr(errors.New("edit requires a codeblock"))
+		}
+		_ = filename
+		// TODO find how to edit a file from a snippet.
 
 	default:
 		return ferr(errors.New("unknow cmd"))
