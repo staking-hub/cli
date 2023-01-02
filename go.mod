@@ -58,6 +58,7 @@ require (
 	github.com/tendermint/tendermint v0.34.24
 	github.com/tendermint/tm-db v0.6.7
 	github.com/vektra/mockery/v2 v2.16.0
+	github.com/yuin/goldmark v1.4.13
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/exp v0.0.0-20221212164502-fae10dda9338
 	golang.org/x/mod v0.7.0
@@ -358,7 +359,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.2.0 // indirect
-	github.com/yuin/goldmark v1.4.13 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
 	github.com/zondax/hid v0.9.1 // indirect
 	github.com/zondax/ledger-go v0.14.0 // indirect
