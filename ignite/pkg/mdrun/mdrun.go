@@ -19,8 +19,12 @@ type Asserter interface {
 	Getwd() string
 }
 
+// Instruction represents what needs to be asserted.
 type Instruction struct {
-	Cmd       string
+	Filename string
+	// Cmd is the mdrun block content
+	Cmd string
+	// CodeBlock is the following fenced code block if any
 	CodeBlock *CodeBlock
 }
 
@@ -32,7 +36,7 @@ type CodeBlock struct {
 
 // Inspect detects all md files in dir, sort them by folder and assert mdrun
 // commands.
-func Inspect(dir string, r Asserter) error {
+func Inspect(dir string, a Asserter) error {
 	var (
 		currentDir = dir
 		// fileSets group markdown files per directory.
@@ -69,7 +73,11 @@ func Inspect(dir string, r Asserter) error {
 				return fmt.Errorf("read file %s: %w", files[i].Name(), err)
 			}
 			root := newParser().Parse(text.NewReader(bz))
-			err = ast.Walk(root, visitor{bz: bz, r: r}.visit)
+			err = ast.Walk(root, visitor{
+				bz:       bz,
+				asserter: a,
+				filename: files[i].Name(),
+			}.visit)
 			if err != nil {
 				return err
 			}
@@ -80,8 +88,9 @@ func Inspect(dir string, r Asserter) error {
 
 // visitor exposes a visit method usable in ast.Walk
 type visitor struct {
-	r  Asserter
-	bz []byte
+	filename string
+	asserter Asserter
+	bz       []byte
 }
 
 func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -91,7 +100,8 @@ func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return ast.WalkContinue, nil
 	}
 	instruction := Instruction{
-		Cmd: mdrun.content,
+		Filename: v.filename,
+		Cmd:      mdrun.content,
 	}
 	codeBlock, ok := n.NextSibling().(*ast.FencedCodeBlock)
 	if ok {
@@ -106,7 +116,7 @@ func (v visitor) visit(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		}
 		instruction.CodeBlock = &CodeBlock{Lang: lang, Lines: lines}
 	}
-	err := v.r.Assert(instruction)
+	err := v.asserter.Assert(instruction)
 	if err != nil {
 		return ast.WalkStop, err
 	}

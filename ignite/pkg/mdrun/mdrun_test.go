@@ -21,7 +21,8 @@ func TestInspect(t *testing.T) {
 			folder: "single_file",
 			setup: func(a *mocks.Asserter) {
 				a.EXPECT().Assert(mdrun.Instruction{
-					Cmd: "exec",
+					Filename: "01.md",
+					Cmd:      "exec",
 					CodeBlock: &mdrun.CodeBlock{
 						Lang: "bash",
 						Lines: []string{
@@ -37,7 +38,8 @@ func TestInspect(t *testing.T) {
 			folder: "multiple_files",
 			setup: func(a *mocks.Asserter) {
 				a.EXPECT().Assert(mdrun.Instruction{
-					Cmd: "exec",
+					Filename: "01.md",
+					Cmd:      "exec",
 					CodeBlock: &mdrun.CodeBlock{
 						Lang: "bash",
 						Lines: []string{
@@ -46,7 +48,8 @@ func TestInspect(t *testing.T) {
 					},
 				}).Return(nil)
 				a.EXPECT().Assert(mdrun.Instruction{
-					Cmd: "write src/hello.go",
+					Filename: "02.md",
+					Cmd:      "write src/hello.go",
 					CodeBlock: &mdrun.CodeBlock{
 						Lang: "go",
 						Lines: []string{
@@ -55,7 +58,8 @@ func TestInspect(t *testing.T) {
 					},
 				}).Return(nil)
 				a.EXPECT().Assert(mdrun.Instruction{
-					Cmd: "exec ignite chain serve",
+					Filename: "02.md",
+					Cmd:      "exec ignite chain serve",
 				}).Return(nil)
 			},
 		},
