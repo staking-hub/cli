@@ -6,11 +6,210 @@ import ProjectsTable from '@site/src/components/ProjectsTable';
 
 # Introduction to Ignite
 
-```diff-go
-func main() {
--  fmt.Println("hello world")
-+  fmt.Println("hello world")
-}
+```patch (obtained with diff -W to preserve func body)
+diff --git a/x/mynewchain/module_simulation.go b/x/mynewchain/module_simulation.go
+index b10fbc9..a545f21 100644
+--- a/x/mynewchain/module_simulation.go
++++ b/x/mynewchain/module_simulation.go
+@@ -2,16 +2,17 @@ package mynewchain
+ 
+ import (
+ 	"math/rand"
++	"xx"
+ 
+ 	"github.com/cosmos/cosmos-sdk/baseapp"
+ 	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
+ 	sdk "github.com/cosmos/cosmos-sdk/types"
+ 	"github.com/cosmos/cosmos-sdk/types/module"
+ 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
+ 	"github.com/cosmos/cosmos-sdk/x/simulation"
+ 	"my-new-chain/testutil/sample"
+ 	mynewchainsimulation "my-new-chain/x/mynewchain/simulation"
+ 	"my-new-chain/x/mynewchain/types"
+ )
+ 
+ // avoid unused import issue
+@@ -24,20 +25,43 @@ var (
+ )
+ 
+ const (
+-// this line is used by starport scaffolding # simapp/module/const
++	opWeightMsgCreateMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgCreateMnylist int = 100
++
++	opWeightMsgUpdateMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgUpdateMnylist int = 100
++
++	opWeightMsgDeleteMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgDeleteMnylist int = 100
++
++	// this line is used by starport scaffolding # simapp/module/const
+ )
+ 
+ // GenerateGenesisState creates a randomized GenState of the module
+ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
+ 	accs := make([]string, len(simState.Accounts))
+ 	for i, acc := range simState.Accounts {
+ 		accs[i] = acc.Address.String()
+ 	}
+ 	mynewchainGenesis := types.GenesisState{
+ 		Params: types.DefaultParams(),
++		MnylistList: []types.Mnylist{
++			{
++				Id:      0,
++				Creator: sample.AccAddress(),
++			},
++			{
++				Id:      1,
++				Creator: sample.AccAddress(),
++			},
++		},
++		MnylistCount: 2,
+ 		// this line is used by starport scaffolding # simapp/module/genesisState
+ 	}
+ 	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(&mynewchainGenesis)
+ }
+ 
+ // ProposalContents doesn't return any content functions for governance proposals
+@@ -57,8 +81,41 @@ func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {}
+ // WeightedOperations returns the all the gov module operations with their respective weights.
+ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtypes.WeightedOperation {
+ 	operations := make([]simtypes.WeightedOperation, 0)
+ 
++	var weightMsgCreateMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgCreateMnylist, &weightMsgCreateMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgCreateMnylist = defaultWeightMsgCreateMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgCreateMnylist,
++		mynewchainsimulation.SimulateMsgCreateMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
++	var weightMsgUpdateMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgUpdateMnylist, &weightMsgUpdateMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgUpdateMnylist = defaultWeightMsgUpdateMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgUpdateMnylist,
++		mynewchainsimulation.SimulateMsgUpdateMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
++	var weightMsgDeleteMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgDeleteMnylist, &weightMsgDeleteMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgDeleteMnylist = defaultWeightMsgDeleteMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgDeleteMnylist,
++		mynewchainsimulation.SimulateMsgDeleteMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
+ 	// this line is used by starport scaffolding # simapp/module/operation
+ 
+ 	return operations
+ }
+```
+
+```patch
+diff --git a/x/mynewchain/module_simulation.go b/x/mynewchain/module_simulation.go
+index b10fbc9..a545f21 100644
+--- a/x/mynewchain/module_simulation.go
++++ b/x/mynewchain/module_simulation.go
+@@ -2,6 +2,7 @@ package mynewchain
+ 
+ import (
+ 	"math/rand"
++	"xx"
+ 
+ 	"github.com/cosmos/cosmos-sdk/baseapp"
+ 	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
+@@ -24,7 +25,19 @@ var (
+ )
+ 
+ const (
+-// this line is used by starport scaffolding # simapp/module/const
++	opWeightMsgCreateMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgCreateMnylist int = 100
++
++	opWeightMsgUpdateMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgUpdateMnylist int = 100
++
++	opWeightMsgDeleteMnylist = "op_weight_msg_mnylist"
++	// TODO: Determine the simulation weight value
++	defaultWeightMsgDeleteMnylist int = 100
++
++	// this line is used by starport scaffolding # simapp/module/const
+ )
+ 
+ // GenerateGenesisState creates a randomized GenState of the module
+@@ -35,6 +48,17 @@ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
+ 	}
+ 	mynewchainGenesis := types.GenesisState{
+ 		Params: types.DefaultParams(),
++		MnylistList: []types.Mnylist{
++			{
++				Id:      0,
++				Creator: sample.AccAddress(),
++			},
++			{
++				Id:      1,
++				Creator: sample.AccAddress(),
++			},
++		},
++		MnylistCount: 2,
+ 		// this line is used by starport scaffolding # simapp/module/genesisState
+ 	}
+ 	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(&mynewchainGenesis)
+@@ -58,6 +82,39 @@ func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {}
+ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtypes.WeightedOperation {
+ 	operations := make([]simtypes.WeightedOperation, 0)
+ 
++	var weightMsgCreateMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgCreateMnylist, &weightMsgCreateMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgCreateMnylist = defaultWeightMsgCreateMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgCreateMnylist,
++		mynewchainsimulation.SimulateMsgCreateMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
++	var weightMsgUpdateMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgUpdateMnylist, &weightMsgUpdateMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgUpdateMnylist = defaultWeightMsgUpdateMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgUpdateMnylist,
++		mynewchainsimulation.SimulateMsgUpdateMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
++	var weightMsgDeleteMnylist int
++	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgDeleteMnylist, &weightMsgDeleteMnylist, nil,
++		func(_ *rand.Rand) {
++			weightMsgDeleteMnylist = defaultWeightMsgDeleteMnylist
++		},
++	)
++	operations = append(operations, simulation.NewWeightedOperation(
++		weightMsgDeleteMnylist,
++		mynewchainsimulation.SimulateMsgDeleteMnylist(am.accountKeeper, am.bankKeeper, am.keeper),
++	))
++
+ 	// this line is used by starport scaffolding # simapp/module/operation
+ 
+ 	return operations
 ```
 
 [Ignite CLI](https://github.com/ignite/cli) offers everything you need to build, test, and launch your blockchain with a
