@@ -52,6 +52,9 @@ format:
 	@go run golang.org/x/tools/cmd/goimports -w -local github.com/ignite/cli .
 	@go run github.com/tbruyelle/mdgofmt/cmd/mdgofmt -w docs
 
+serve-docs:
+	@cd docs; yarn && yarn start
+
 ## lint: Run Golang CI Lint.
 lint:
 	@echo Running gocilint...
