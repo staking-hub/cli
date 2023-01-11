@@ -18,8 +18,8 @@ import (
 var (
 	//go:embed testdata/file.go
 	fileGo string
-	//go:embed testdata/edit.go
-	editGo string
+	//go:embed testdata/edit.patch
+	editPatch string
 	//go:embed testdata/file_edited.go
 	fileEditedGo string
 )
@@ -219,7 +219,21 @@ func TestAssert(t *testing.T) {
 					Cmd:      "edit file.go",
 				},
 			},
-			expectedError: "assert: file '01.md' cmd 'edit file.go': edit requires a codeblock",
+			expectedError: "assert: file '01.md' cmd 'edit file.go': edit requires a patch codeblock",
+		},
+		{
+			name: "fail: edit w/o patch codeblock",
+			instructions: []mdrun.Instruction{
+				{
+					Filename: "01.md",
+					Cmd:      "edit file.go",
+					CodeBlock: &mdrun.CodeBlock{
+						Lang:  "go",
+						Lines: strings.SplitAfter(fileEditedGo, "\n"),
+					},
+				},
+			},
+			expectedError: "assert: file '01.md' cmd 'edit file.go': edit requires a patch codeblock",
 		},
 		{
 			name: "ok: edit file",
@@ -227,13 +241,15 @@ func TestAssert(t *testing.T) {
 				{
 					Cmd: "write file.go",
 					CodeBlock: &mdrun.CodeBlock{
+						Lang:  "go",
 						Lines: strings.SplitAfter(fileGo, "\n"),
 					},
 				},
 				{
 					Cmd: "edit file.go",
 					CodeBlock: &mdrun.CodeBlock{
-						Lines: strings.SplitAfter(editGo, "\n"),
+						Lang:  "patch",
+						Lines: strings.SplitAfter(editPatch, "\n"),
 					},
 				},
 			},

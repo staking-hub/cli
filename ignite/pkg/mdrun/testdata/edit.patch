@@ -1,0 +1,21 @@
+diff --git a/ignite/pkg/mdrun/testdata/file.go b/ignite/pkg/mdrun/testdata/file.go
+index 0bcfc558e..dc507b07c 100644
+--- a/ignite/pkg/mdrun/testdata/file.go
++++ b/ignite/pkg/mdrun/testdata/file.go
+@@ -1,11 +1,14 @@
+ package main
+ 
+-import "fmt"
++import (
++	"fmt"
++	"strings"
++)
+ 
+ func main() {
+ 	fmt.Println(hello())
+ }
+ 
+ func hello() string {
+-	return ""
++	return strings.Title("hello")
+ }

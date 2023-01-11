@@ -37,22 +37,22 @@ func (a asserter) Getwd() string {
 }
 
 func (a *asserter) Assert(ctx context.Context, i Instruction) error {
-	ferr := func(err error) error {
+	errf := func(err error) error {
 		// TODO add line number context
 		return fmt.Errorf("assert: file '%s' cmd '%s': %v", i.Filename, i.Cmd, err)
 	}
 	// Set wd and restore previous at the end
 	origwd, err := os.Getwd()
 	if err != nil {
-		return ferr(err)
+		return errf(err)
 	}
 	if err := os.Chdir(a.wd); err != nil {
-		return ferr(err)
+		return errf(err)
 	}
 	defer os.Chdir(origwd)
 
 	if i.Cmd == "" {
-		return ferr(errors.New("empty cmd"))
+		return errf(errors.New("empty cmd"))
 	}
 	s := strings.Fields(i.Cmd)
 	cmd := s[0]
@@ -62,7 +62,7 @@ func (a *asserter) Assert(ctx context.Context, i Instruction) error {
 		if len(s) == 1 {
 			// single exec requires a code block
 			if i.CodeBlock == nil {
-				return ferr(errors.New("missing codeblock for exec"))
+				return errf(errors.New("missing codeblock for exec"))
 			}
 			for _, line := range i.CodeBlock.Lines {
 				cmds := strings.Fields(line)
@@ -72,44 +72,52 @@ func (a *asserter) Assert(ctx context.Context, i Instruction) error {
 				}
 				err := a.exec(ctx, cmds, cmd == cmdExecBackground)
 				if err != nil {
-					return ferr(fmt.Errorf("codeblock %v: %v", cmds, err))
+					return errf(fmt.Errorf("codeblock %v: %v", cmds, err))
 				}
 			}
 		} else {
 			// exec with args
 			err := a.exec(ctx, s[1:], cmd == cmdExecBackground)
 			if err != nil {
-				return ferr(err)
+				return errf(err)
 			}
 		}
 
 	case cmdWrite:
 		if len(s) != 2 {
-			return ferr(errors.New("write requires one arg"))
+			return errf(errors.New("write requires one arg"))
 		}
 		filename := s[1]
 		if i.CodeBlock == nil {
-			return ferr(errors.New("write requires a codeblock"))
+			return errf(errors.New("write requires a codeblock"))
 		}
 		content := strings.Join(i.CodeBlock.Lines, "")
 		err := os.WriteFile(filename, []byte(content), 0o644)
 		if err != nil {
-			return ferr(err)
+			return errf(err)
 		}
 
 	case cmdEdit:
 		if len(s) != 2 {
-			return ferr(errors.New("edit requires one arg"))
+			return errf(errors.New("edit requires one arg"))
 		}
 		filename := s[1]
-		if i.CodeBlock == nil {
-			return ferr(errors.New("edit requires a codeblock"))
+		if i.CodeBlock == nil || i.CodeBlock.Lang != "patch" {
+			return errf(errors.New("edit requires a patch codeblock"))
 		}
-		_ = filename
-		// TODO find how to edit a file from a snippet.
+		f, err := os.CreateTemp("", "")
+		if err != nil {
+			return errf(err)
+		}
+		defer f.Close()
+		fmt.Fprint(f, strings.Join(i.CodeBlock.Lines, ""))
+		cmd := exec.Command("patch", filename, f.Name())
+		if err := cmd.Run(); err != nil {
+			return errf(fmt.Errorf("patch command: %w", err))
+		}
 
 	default:
-		return ferr(errors.New("unknow cmd"))
+		return errf(errors.New("unknow cmd"))
 	}
 
 	return nil
